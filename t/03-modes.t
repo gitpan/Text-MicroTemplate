@@ -4,27 +4,25 @@ use Test::More tests => 8;
 use Text::MicroTemplate qw(:all);
 
 # comment
-is eval as_html(<<'...'), "aaa\nbbb\n";
+is render_mt(<<'...')->as_string, "aaa\nbbb\n";
 aaa
 ?# 
 bbb
 ?# 
 ...
-is eval as_html('aaa<?# a ?>bbb'), "aaabbb";
+is render_mt('aaa<?# a ?>bbb')->as_string, "aaabbb";
 
 # expression and raw expression
 do {
-    my $s = 'foo<a';
-    is eval as_html('<?= $s ?>'), 'foo&lt;a';
-    is eval as_html('<?=r $s ?>'), 'foo<a';
-    my $rs = raw_string($s);
-    is eval as_html('<?= $rs ?>'), 'foo<a';
-    is eval as_html('<?=r $rs ?>'), 'foo<a';
+    is render_mt('<?= $args ?>', 'foo<a')->as_string, 'foo&lt;a';
+    is render_mt('<?=r $args ?>', 'foo<a')->as_string, 'foo<a';
+    my $rs = encoded_string('foo<a');
+    is render_mt('<?= $args ?>', $rs)->as_string, 'foo<a';
+    is render_mt('<?=r $args ?>', $rs)->as_string, 'foo<a';
 };
 do {
     use utf8;
-    my $s = 'い<';
-    is eval as_html('あ<?= $s ?>う'), 'あい&lt;う';
-    my $rs = raw_string($s);
-    is eval as_html('あ<?= $rs ?>う'), 'あい<う';
+    is render_mt('あ<?= $args ?>う', 'い<')->as_string, 'あい&lt;う';
+    my $rs = encoded_string('い<');
+    is render_mt('あ<?= $args ?>う', $rs)->as_string, 'あい<う';
 }

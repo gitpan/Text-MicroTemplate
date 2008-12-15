@@ -11,9 +11,9 @@ use constant DEBUG => $ENV{MICRO_TEMPLATE_DEBUG} || 0;
 
 use Carp 'croak';
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(as_html raw_string);
+our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
     all => [ @EXPORT_OK ],
 );
@@ -31,7 +31,7 @@ sub new {
         tag_start           => '<?',
         tag_end             => '?>',
         escape_func         => 'Text::MicroTemplate::escape_html',
-        ref($_[0]) ? %{$_[0]} : @_,
+        @_ == 1 ? ref($_[0]) ? %{$_[0]} : (template => $_[0]) : @_,
     }, $class;
     if (defined $self->{template}) {
         $self->parse($self->{template});
@@ -100,13 +100,13 @@ sub build {
 
             # Expression
             if ($type eq 'expr') {
-                $lines[-1] .= "\$_MT_T = scalar $value; \$_MT .= ref \$_MT_T eq 'Text::MicroTemplate::RawString' ? \$\$_MT_T : $escape_func(\$_MT_T);";
+                $lines[-1] .= "\$_MT_T = scalar $value; \$_MT .= ref \$_MT_T eq 'Text::MicroTemplate::EncodedString' ? \$\$_MT_T : $escape_func(\$_MT_T);";
             }
 
             # Raw Expression
             if ($type eq 'raw_expr') {
                 
-                $lines[-1] .= "\$_MT_T = $value; \$_MT .= ref \$_MT_T eq q(Text::MicroTemplate::RawString) ? \$\$_MT_T : \$_MT_T;";
+                $lines[-1] .= "\$_MT_T = $value; \$_MT .= ref \$_MT_T eq q(Text::MicroTemplate::EncodedString) ? \$\$_MT_T : \$_MT_T;";
             }
         }
     }
@@ -271,59 +271,47 @@ sub parse {
 
 sub _context {
     my ($self, $text, $line) = @_;
-
-    $line     -= 1;
-    my $nline  = $line + 1;
-    my $pline  = $line - 1;
-    my $nnline = $line + 2;
-    my $ppline = $line - 2;
     my @lines  = split /\n/, $text;
-
-    # Context
-    my $context = (($line + 1) . ': ' . $lines[$line] . "\n");
-
-    # -1
-    $context = (($pline + 1) . ': ' . $lines[$pline] . "\n" . $context)
-      if $lines[$pline];
-
-    # -2
-    $context = (($ppline + 1) . ': ' . $lines[$ppline] . "\n" . $context)
-      if $lines[$ppline];
-
-    # +1
-    $context = ($context . ($nline + 1) . ': ' . $lines[$nline] . "\n")
-      if $lines[$nline];
-
-    # +2
-    $context = ($context . ($nnline + 1) . ': ' . $lines[$nnline] . "\n")
-      if $lines[$nnline];
-
-    return $context;
+    
+    join '', map {
+        0 < $_ && $_ <= @lines ? sprintf("%4d: %s\n", $_, $lines[$_ - 1]) : ''
+    } ($line - 2) .. ($line + 2);
 }
 
 # Debug goodness
 sub _error {
-    my ($self, $error) = @_;
-
-    # No trace in production mode
-    return undef unless DEBUG;
-
+    my ($self, $error, $line_offset, $from) = @_;
+    
+    unless (defined $from) {
+        $from = sub {
+            my $i = 1;
+            while (my @c = caller($i++)) {
+                if ($c[0] ne __PACKAGE__) {
+                    return "$c[1] at line $c[2]";
+                }
+            }
+            '';
+        }->();
+    }
+    $from = ' passed from ' . $from;
+    
     # Line
-    if ($error =~ /at\s+\(eval\s+\d+\)\s+line\s+(\d+)/) {
-        my $line  = $1;
-        my $delim = '-' x 76;
-
-        my $report = "\nTemplate error around line $line.\n";
+    if ($error =~ /^(.*)\s+at\s+\(eval\s+\d+\)\s+line\s+(\d+)/) {
+        my $reason = $1;
+        my $line   = $2 - $line_offset;
+        my $delim  = '-' x 76;
+        
+        my $report = "$reason at line $line in template$from.\n";
         my $template = $self->_context($self->{template}, $line);
         $report .= "$delim\n$template$delim\n";
 
         # Advanced debugging
-        if (DEBUG >= 2) {
+        if (DEBUG) {
             my $code = $self->_context($self->code, $line);
             $report .= "$code$delim\n";
         }
 
-        $report .= "$error\n";
+        $report .= $error;
         return $report;
     }
 
@@ -332,15 +320,14 @@ sub _error {
 }
 
 # create raw string (that does not need to be escaped)
-sub raw_string {
-    my $s = shift;
-    bless \$s, 'Text::MicroTemplate::RawString';
+sub encoded_string {
+    Text::MicroTemplate::EncodedString->new($_[0]);
 }
 
 sub escape_html {
     my $str = shift;
-    return $$str
-        if ref $str eq 'Text::MicroTemplate::RawString';
+    return $str->as_string
+        if ref $str eq 'Text::MicroTemplate::EncodedString';
     $str =~ s/&/&amp;/g;
     $str =~ s/>/&gt;/g;
     $str =~ s/</&lt;/g;
@@ -349,11 +336,46 @@ sub escape_html {
     return $str;
 }
 
-sub as_html {
-    my $t = shift;
-    my $mt = Text::MicroTemplate->new;
-    $mt->parse($t);
-    '((' . $mt->code . ')->())';
+sub build_mt {
+    my $_mt = Text::MicroTemplate->new(@_);
+    my $_code = $_mt->code;
+    my $expr = << "...";
+sub {
+    my \$args = \@_ == 1 ? \$_[0] : { \@_ };
+    encoded_string((
+        $_code
+    )->());
+}
+...
+    my $die_msg;
+    {
+        local $@;
+        if (my $_builder = eval($expr)) {
+            return $_builder;
+        }
+        $die_msg = $_mt->_error($@, 3);
+    }
+    die $die_msg;
+}
+
+sub render_mt {
+    my $builder = build_mt(shift);
+    $builder->(@_);
+}
+
+package Text::MicroTemplate::EncodedString;
+
+use strict;
+use warnings;
+
+sub new {
+    my ($klass, $str) = @_;
+    bless \$str, $klass;
+}
+
+sub as_string {
+    my $self = shift;
+    $$self;
 }
 
 1;
@@ -365,25 +387,30 @@ Text::MicroTemplate
 
 =head1 SYNOPSIS
 
-    use Text::MicroTemplate qw(as_html);
+    use Text::MicroTemplate qw(:all);
 
     # simple form
-    $user = 'John';
-    $html = eval as_html('hello, <?= $user ?>')
-        or die $@;
+    $html = render_mt(
+         'hello, <?= $args->{user} ?>',
+         { user => 'John' },
+    )->as_string;
+
+    # cache compiled template as subref
+    $renderer = build_mt('hello, <?= $args->{user} ?>');
+    $html = $renderer->({ user => 'John' })->as_string;
 
     # complex form
     $mt = Text::MicroTemplate->new(
         template => 'hello, <?= $query->param('user') ?>,
     );
     $code = $mt->code;
-    $builder = eval << "..." or die $@;
+    $renderer = eval << "..." or die $@;
     sub {
         my \$query = shift;
         $code->();
     }
     ...
-    $html = $builder->(CGI->new);
+    $html = $renderer->(CGI->new)->as_string;
 
 =head1 DESCRIPTION
 
@@ -432,31 +459,55 @@ Text::MicroTemplate does not provide features like template cache or including o
 
 =head1 EXPORTABLE FUNCTIONS
 
-=head2 as_html($template)
+=head2 render_mt($template, $args)
 
-Utility funtion that returns an expression that renders given template when evaluated.
+Utility function that renders given template and returns an EncodedString.
 
-    # outputs: hello, John!
-    $user = 'John';
-    $html = eval as_html('hello, <?= $user ?>!') or die $@;
+    # render
+    $hello = render_mt(
+        'hello, <?= $args->{user} ?>!',
+        { user => 'John' },
+    );
 
-=head2 raw_string($str)
+    # print as HTML
+    print $hello->as_string;
+
+    # use the result in another template (no double-escapes)
+    $enc = render_mt(
+        '<h1><?= $args->{hello} ?></h1>',
+        { hello => $hello },
+    );
+
+Intertally, the function is equivalent to:
+
+    build_mt($template)->($args);
+
+=head2 build_mt($template)
+
+Returns a subref that renders given template.  Parameters are equivalent to Text::MicroTemplate->new.
+
+    # build template renderer at startup time and use it multiple times
+    my $renderer = build_mt('hello, <?= $args->{user} ?>!');
+
+    sub run {
+        ...
+        my $hello = $renderer->({ user => $query->param('user') });
+        ...
+    }
+
+=head2 encoded_string($str)
 
 wraps given string to an object that will not be escaped by the template engine
 
 =head1 OO-STYLE INTERFACE
 
-Text::MicroTemplate provides OO-style interface to handle more complex cases.  The constructor accepts a hash (or a hasref) with following arguments.
+Text::MicroTemplate provides OO-style interface to handle more complex cases.
 
-=head2 template
+=head2 new($template)
 
-template
+=head2 new({ template => $template, escape_func => 'escape_funcname' })
 
-=head2 escape_func
-
-name of function used to escape variables.  If set to undef, no escape occurs. (default: html escape)
-
-=head1 OO-STYLE ACCESSORS
+In the first form, constructs a HTML template renderer.  In the second form, constructs a renderer that would escape non-encoded strings using given escape function.  If escape function is set to undef, no escape will occur.  The default escape function is C<Text::MicroTemplate::escape_html>.
 
 =head2 code()
 
