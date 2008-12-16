@@ -25,3 +25,5 @@ t/01-simple.t
 t/02-render_mt.t
 t/03-modes.t
 t/04-multiline.t
+t/05-warn.t
+t/06-package.t
