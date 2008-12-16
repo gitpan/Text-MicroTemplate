@@ -1,4 +1,5 @@
 Changes
+inc/File/Temp.pm
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm
@@ -16,6 +17,8 @@ inc/Test/Builder.pm
 inc/Test/Builder/Module.pm
 inc/Test/More.pm
 lib/Text/MicroTemplate.pm
+lib/Text/MicroTemplate/EncodedString.pm
+lib/Text/MicroTemplate/File.pm
 Makefile.PL
 MANIFEST			This list of files
 META.yml
@@ -27,3 +30,7 @@ t/03-modes.t
 t/04-multiline.t
 t/05-warn.t
 t/06-package.t
+t/07-file.t
+t/07-file/hello.mt
+t/07-file/include.mt
+t/07-file/package.mt

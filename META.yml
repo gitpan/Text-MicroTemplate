@@ -3,6 +3,7 @@ abstract: ~
 author:
   - 'Kazuho Oku <kazuhooku gmail.com>'
 build_requires:
+  File::Temp: 0
   Test::More: 0
 distribution_type: module
 generated_by: 'Module::Install version 0.77'
@@ -17,4 +18,4 @@ no_index:
     - t
 requires:
   Filter::Util::Call: 0
-version: 0.03
+version: 0.04
