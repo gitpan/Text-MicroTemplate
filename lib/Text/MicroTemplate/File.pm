@@ -72,6 +72,24 @@ sub render_file {
     $self->build_file($file)->(@_);
 }
 
+sub wrapper_file {
+    my $self = shift;
+    my $file = shift;
+    my @args = @_;
+    my $mtref = do {
+        no strict 'refs';
+        ${"$self->{package_name}::_MTREF"};
+    };
+    my $before = $$mtref;
+    $$mtref = '';
+    return sub {
+        my $inner_func = shift;
+        $inner_func->(@_);
+        $$mtref =
+            $before . $self->render_file($file, Text::MicroTemplate::encoded_string($$mtref), @args)->as_string;
+    }
+}
+
 1;
 __END__
 
@@ -120,6 +138,10 @@ Returns a subref that renders given template file.
 =head2 render_file($file, @args)
 
 Renders the template file with given arguments.
+
+=head2 wrapper_file($file, @args)->(sub { template lines })
+
+Wraps given template with wrapper file.  Internally the processed template is passed as $_[0] to the wrapper template.
 
 =head1 SEE ALSO
 

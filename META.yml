@@ -18,4 +18,4 @@ no_index:
     - t
 requires:
   Filter::Util::Call: 0
-version: 0.04
+version: 0.05

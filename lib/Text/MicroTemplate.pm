@@ -11,7 +11,7 @@ use constant DEBUG => $ENV{MICRO_TEMPLATE_DEBUG} || 0;
 
 use Carp 'croak';
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -137,7 +137,7 @@ sub _build {
     
     # Wrap
     $lines[0] ||= '';
-    $lines[0]   = q/sub { my $_MT = ''; my $_MT_T = '';/ . $lines[0];
+    $lines[0]   = q/sub { my $_MT = ''; local $/ . $self->{package_name} . q/::_MTREF = \$_MT; my $_MT_T = '';/ . $lines[0];
     $lines[-1] .= q/return $_MT; }/;
 
     $self->{code} = join "\n", @lines;
@@ -333,6 +333,8 @@ sub encoded_string {
 
 sub escape_html {
     my $str = shift;
+    return ''
+        unless defined $str;
     return $str->as_string
         if ref $str eq 'Text::MicroTemplate::EncodedString';
     $str =~ s/&/&amp;/g;
@@ -382,6 +384,32 @@ sub {
 sub render_mt {
     my $builder = build_mt(shift);
     $builder->(@_);
+}
+
+# ? $_mt->filter(sub { s/\s+//smg; s/[\r\n]//g; })->(sub { ... ? });
+sub filter {
+    my ($self, $callback) = @_;
+    my $mtref = do {
+        no strict 'refs';
+        ${"$self->{package_name}::_MTREF"};
+    };
+    my $before = $$mtref;
+    $$mtref = '';
+    return sub {
+        my $inner_func = shift;
+        $inner_func->(@_);
+
+        ## sub { s/foo/bar/g } is a valid filter
+        ## sub { DateTime::Format::Foo->parse_string(shift) } is valid too
+        local $_ = $$mtref;
+        my $retval = $callback->($$mtref);
+        no warnings 'uninitialized';
+        if (($retval =~ /^\d+$/ and $_ ne $$mtref) or (defined $retval and !$retval)) {
+            $$mtref = $before . $_;
+        } else {
+            $$mtref = $before . $retval;
+        }
+    }
 }
 
 package Text::MicroTemplate::EncodedString;
@@ -540,6 +568,14 @@ package under where the renderer is compiled (defaults to caller package)
 =head2 code()
 
 returns perl code that renders the template when evaluated
+
+=head2 filter(sub filter_func { ... })->sub({ template lines })
+
+filters given template lines
+
+    ? $_mt->filter(sub { s/Hello/Good bye/g })->sub({
+    Hello, John!
+    ? })
 
 =head1 SEE ALSO
 
