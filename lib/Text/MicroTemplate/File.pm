@@ -101,7 +101,7 @@ Text::MicroTemplate::File - a file-based template manager
 
     use Text::MicroTemplate::File;
 
-    our $mtf = Text::MicroTemplate->new(
+    our $mtf = Text::MicroTemplate::File->new(
         include_path => [ $path1, $path2, ... ],
         use_cache    => 1,
     );
@@ -127,7 +127,7 @@ layer passed to L<open> (default: ":utf8")
 
 =head2 package_name
 
-package under where template files are compiled (deafult: "main")
+package under where template files are compiled (default: "main")
 
 =head1 METHODS
 
