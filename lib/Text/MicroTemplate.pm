@@ -12,7 +12,7 @@ use 5.00800;
 
 use Carp 'croak';
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -392,6 +392,8 @@ package Text::MicroTemplate::EncodedString;
 
 use strict;
 use warnings;
+
+use overload q{""} => sub { shift->as_string }, fallback => 1;
 
 sub new {
     my ($klass, $str) = @_;

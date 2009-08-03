@@ -11,8 +11,10 @@ our @ISA = qw(Text::MicroTemplate);
 sub new {
     my $klass = shift;
     my $self = $klass->SUPER::new(@_);
-    $self->{open_layer}   ||= ':utf8';
     $self->{include_path} ||= [ '.' ];
+    unless (defined $self->{open_layer}) {
+        $self->{open_layer} = ':utf8';
+    }
     unless (ref $self->{include_path}) {
         $self->{include_path} = [ $self->{include_path} ];
     }

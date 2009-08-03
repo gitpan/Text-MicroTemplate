@@ -1,5 +1,9 @@
 Revision history for Perl extension Text::MicroTemplate
 
+0.07
+	- added overload q{""} to Text::MicroTemplate::EncodedString
+	- better open_layer parameter handling at constructer
+
 0.06
 	- added "use 5.00800".
 	  We don't want to mention older perl =(

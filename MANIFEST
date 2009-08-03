@@ -1,4 +1,3 @@
-.shipit
 Changes
 inc/File/Temp.pm
 inc/Module/Install.pm
@@ -34,6 +33,7 @@ t/06-package.t
 t/07-file.t
 t/07-file/hello.mt
 t/07-file/include.mt
+t/07-file/konnitiwa.mt
 t/07-file/package.mt
 t/07-file/wrapped.mt
 t/07-file/wrapped2.mt

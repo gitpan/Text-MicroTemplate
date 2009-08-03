@@ -20,6 +20,5 @@ no_index:
     - inc
     - t
 requires:
-  Filter::Util::Call: 0
   perl: 5.8.0
-version: 0.06
+version: 0.07
