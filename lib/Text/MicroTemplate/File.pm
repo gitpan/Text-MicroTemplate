@@ -58,10 +58,12 @@ sub build_file {
             my $src = do { local $/; join '', <$fh> };
             close $fh;
             $self->parse($src);
+            local $Text::MicroTemplate::_mt_setter = 'my $_mt = shift;';
+            my $f = $self->build();
             $self->{cache}->{$file} = [
                 $st[9],
-                my $f = $self->build(),
-            ];
+                $f,
+            ] if $self->{use_cache};
             return $f;
         }
     }
@@ -71,7 +73,7 @@ sub build_file {
 sub render_file {
     my $self = shift;
     my $file = shift;
-    $self->build_file($file)->(@_);
+    $self->build_file($file)->($self, @_);
 }
 
 sub wrapper_file {
