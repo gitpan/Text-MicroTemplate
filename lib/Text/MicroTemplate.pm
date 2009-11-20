@@ -13,7 +13,7 @@ use 5.00800;
 use Carp 'croak';
 use Scalar::Util;
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -32,7 +32,7 @@ sub new {
         tree                => [],
         tag_start           => '<?',
         tag_end             => '?>',
-        escape_func         => 'Text::MicroTemplate::escape_html',
+        escape_func         => \&_inline_escape_html,
         package_name        => undef, # defaults to caller
         @_ == 1 ? ref($_[0]) ? %{$_[0]} : (template => $_[0]) : @_,
     }, $class;
@@ -43,7 +43,7 @@ sub new {
         $self->{package_name} = 'main';
         my $i = 0;
         while (my $c = caller(++$i)) {
-            if ($c !~ /^Text::MicroTemplate($|::)/) {
+            if ($c !~ /^Text::MicroTemplate\b/) {
                 $self->{package_name} = $c;
                 last;
             }
@@ -82,7 +82,11 @@ sub _build {
     my $self = shift;
     
     my $escape_func = $self->{escape_func} || '';
-    
+
+    my $embed_escape_func = ref($escape_func) eq 'CODE'
+        ? $escape_func
+        : sub{ $escape_func . "(@_)" };
+
     # Compile
     my @lines;
     my $last_was_code;
@@ -121,7 +125,8 @@ sub _build {
 
             # Expression
             if ($type eq 'expr') {
-                $lines[-1] .= "\$_MT_T = scalar $value; \$_MT .= ref \$_MT_T eq 'Text::MicroTemplate::EncodedString' ? \$\$_MT_T : $escape_func(\$_MT_T);";
+                my $escaped = $embed_escape_func->('$_MT_T');
+                $lines[-1] .= "\$_MT_T = $value;\$_MT .= ref \$_MT_T eq 'Text::MicroTemplate::EncodedString' ? \$\$_MT_T : $escaped;";
             }
         }
     }
@@ -132,7 +137,6 @@ sub _build {
     }
     
     # Wrap
-    $lines[0] ||= '';
     $lines[0]   = q/sub { my $_MT = ''; local $/ . $self->{package_name} . q/::_MTREF = \$_MT; my $_MT_T = '';/ . $lines[0];
     $lines[-1] .= q/return $_MT; }/;
 
@@ -309,17 +313,29 @@ sub encoded_string {
     Text::MicroTemplate::EncodedString->new($_[0]);
 }
 
-{
-    my %_escape_table = ( '&' => '&amp;', '>' => '&gt;', '<' => '&lt;', q{"} => '&quot;', q{'} => '&#39;' );
-    sub escape_html {
-        my $str = shift;
-        return ''
-            unless defined $str;
-        return $str->as_string
-            if ref $str eq 'Text::MicroTemplate::EncodedString';
-        $str =~ s/([&><"'])/$_escape_table{$1}/ge;
-        return $str;
-    }
+
+sub _inline_escape_html{
+    my($variable) = @_;
+
+    my $source = qq{
+        do{
+            $variable =~ s/([&><"'])/\$Text::MicroTemplate::_escape_table{\$1}/ge;
+            $variable;
+        }
+    }; #" for poor editors
+    $source =~ s/\n//g; # to keep line numbers
+    return $source;
+}
+
+our %_escape_table = ( '&' => '&amp;', '>' => '&gt;', '<' => '&lt;', q{"} => '&quot;', q{'} => '&#39;' );
+sub escape_html {
+    my $str = shift;
+    return ''
+        unless defined $str;
+    return $str->as_string
+        if ref $str eq 'Text::MicroTemplate::EncodedString';
+    $str =~ s/([&><"'])/$_escape_table{$1}/ge; #' for poor editors
+    return $str;
 }
 
 sub build_mt {
@@ -348,6 +364,11 @@ sub {
     )->(\@_));
 }
 ...
+
+    if(DEBUG >= 2){
+        DEBUG >= 3 ? die $expr : warn $expr;
+    }
+
     my $die_msg;
     {
         local $@;
