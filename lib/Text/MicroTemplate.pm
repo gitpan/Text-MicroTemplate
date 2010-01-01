@@ -13,7 +13,7 @@ use 5.00800;
 use Carp 'croak';
 use Scalar::Util;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -566,11 +566,11 @@ package under where the renderer is compiled (defaults to caller package)
 
 returns perl code that renders the template when evaluated
 
-=head2 filter(sub filter_func { ... })->sub({ template lines })
+=head2 filter(sub filter_func { ... })->(sub { template lines })
 
 filters given template lines
 
-    ? $_mt->filter(sub { s/Hello/Good bye/g })->sub({
+    ? $_mt->filter(sub { s/Hello/Good bye/g })->(sub {
     Hello, John!
     ? })
 
