@@ -13,7 +13,7 @@ use 5.00800;
 use Carp 'croak';
 use Scalar::Util;
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -137,7 +137,7 @@ sub _build {
     }
     
     # Wrap
-    $lines[0]   = q/sub { my $_MT = ''; local $/ . $self->{package_name} . q/::_MTREF = \$_MT; my $_MT_T = '';/ . $lines[0];
+    $lines[0]   = q/sub { my $_MT = ''; local $/ . $self->{package_name} . q/::_MTREF = \$_MT; my $_MT_T = '';/ . (@lines ? $lines[0] : '');
     $lines[-1] .= q/return $_MT; }/;
 
     $self->{code} = join "\n", @lines;
@@ -230,7 +230,7 @@ sub parse {
         /x, $line) {
 
             # Garbage
-            next unless $token;
+            next if $token eq '';
 
             # End
             if ($token =~ /^$tag_end$/) {
@@ -448,7 +448,7 @@ Text::MicroTemplate
 
     # complex form
     $mt = Text::MicroTemplate->new(
-        template => 'hello, <?= $query->param('user') ?>,
+        template => 'hello, <?= $query->param('user') ?>',
     );
     $code = $mt->code;
     $renderer = eval << "..." or die $@;
