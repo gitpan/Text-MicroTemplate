@@ -13,7 +13,7 @@ use 5.00800;
 use Carp 'croak';
 use Scalar::Util;
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -133,7 +133,7 @@ sub _build {
 
     # add semicolon to last line of code
     if ($last_was_code) {
-        $lines[-1] .= ';';
+        $lines[-1] .= "\n;";
     }
     
     # Wrap
