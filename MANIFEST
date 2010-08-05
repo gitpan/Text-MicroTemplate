@@ -41,3 +41,4 @@ t/08-filter.t
 t/09-escape.t
 t/10-emptytemplate.t
 t/11-comment.t
+t/12-compound.t
