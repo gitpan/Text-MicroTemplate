@@ -13,7 +13,7 @@ use 5.00800;
 use Carp 'croak';
 use Scalar::Util;
 
-our $VERSION = '0.15';
+our $VERSION = '0.16';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -90,7 +90,7 @@ sub _build {
     # Compile
     my @lines;
     my $last_was_code;
-    my $cached_text;
+    my $last_text;
     for my $line (@{$self->{tree}}) {
 
         # New line
@@ -99,9 +99,13 @@ sub _build {
             my $type  = $line->[$j];
             my $value = $line->[$j + 1];
 
-            if ($type ne 'text' && defined $cached_text) {
-                $lines[-1] = "\$_MT .=\"$cached_text\";";
-                undef $cached_text;
+            if ($type ne 'text' && defined $last_text) {
+                # do not mess the start of current line, since it might be
+                # the start of "=pod", etc.
+                $lines[
+                    $j == 0 && @lines >= 2 ? -2 : -1
+                ] .= "\$_MT .=\"$last_text\";";
+                undef $last_text;
             }
             
             # Need to fix line ending?
@@ -120,12 +124,7 @@ sub _build {
                 $value = quotemeta($value);
                 $value .= '\n' if $newline;
 
-                if ($lines[-1] eq '') {
-                    $cached_text =
-                        defined $cached_text ? "$cached_text$value" : $value;
-                } else {
-                    $lines[-1] .= "\$_MT.=\"$value\";";
-                }
+                $last_text = defined $last_text ? "$last_text$value" : $value;
             }
 
             # Code
@@ -147,8 +146,8 @@ sub _build {
         $lines[-1] .= "\n;";
     }
     # add last text line(s)
-    if (defined $cached_text) {
-        $lines[-1] .= "\$_MT .=\"$cached_text\";";
+    if (defined $last_text) {
+        $lines[-1] .= "\$_MT .=\"$last_text\";";
     }
     
     # Wrap
@@ -448,7 +447,7 @@ __END__
 
 =head1 NAME
 
-Text::MicroTemplate
+Text::MicroTemplate - Micro template engine with Perl5 language
 
 =head1 SYNOPSIS
 
@@ -497,6 +496,8 @@ Text::MicroTemplate does not provide features like template cache or including o
 The module only provides basic building blocks for a template engine.  Refer to L<Text::MicroTemplate::File> for higher-level interface.
 
 =head1 TEMPLATE SYNTAX
+
+The template language is Perl5 itself!
 
     # output the result of expression with automatic escape
     <?= $expr ?>             (tag style)
@@ -589,9 +590,17 @@ filters given template lines
     Hello, John!
     ? })
 
+=head1 DEBUG
+
+The C<MICRO_TEMPLATE_DEBUG> environment variable helps debugging.
+The value C<1> extends debugging messages, C<2> reports compiled
+Perl code with C<warn()>, C<3> is like C<2> but uses C<die()>.
+
 =head1 SEE ALSO
 
 L<Text::MicroTemplate::File>
+
+L<Text::MicroTemplate::Extended>
 
 =head1 AUTHOR
 
@@ -603,6 +612,6 @@ The module is based on L<Mojo::Template> by Sebastian Riedel.
 
 =head1 LICENSE
 
-This program is free software, you can redistribute it and/or modify it under the same terms as Perl 5.10.
+This program is free software, you can redistribute it and/or modify it under the same terms as Perl itself.
 
 =cut

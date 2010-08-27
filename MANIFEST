@@ -33,6 +33,7 @@ t/07-file/hello.mt
 t/07-file/include.mt
 t/07-file/konnitiwa.mt
 t/07-file/package.mt
+t/07-file/pod.mt
 t/07-file/wrapped.mt
 t/07-file/wrapped2.mt
 t/07-file/wrapped_escape.mt
