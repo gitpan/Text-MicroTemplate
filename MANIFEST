@@ -33,6 +33,7 @@ t/07-file/package.mt
 t/07-file/pod.mt
 t/07-file/wrapped.mt
 t/07-file/wrapped2.mt
+t/07-file/wrapped3.mt
 t/07-file/wrapped_escape.mt
 t/07-file/wrapper.mt
 t/08-filter.t
