@@ -13,7 +13,7 @@ use 5.00800;
 use Carp 'croak';
 use Scalar::Util;
 
-our $VERSION = '0.19';
+our $VERSION = '0.20';
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(encoded_string build_mt render_mt);
 our %EXPORT_TAGS = (
@@ -204,7 +204,7 @@ sub parse {
         }
 
         # Comment line, dummy token needed for line count
-        if ($line =~ /^$line_start$cmnt_mark\s+$/) {
+        if ($line =~ /^$line_start$cmnt_mark/) {
             push @{$self->{tree}}, [];
             $multiline_expression = 0;
             next;
